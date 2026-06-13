@@ -68,6 +68,8 @@ const levelEl = document.getElementById('level');
 const statusEl = document.getElementById('status');
 const restartBtn = document.getElementById('restartBtn');
 const autoPlayBtn = document.getElementById('autoPlayBtn');
+const speedRange = document.getElementById('speedRange');
+const speedValue = document.getElementById('speedValue');
 
 let board = createBoard();
 let currentPiece = null;
@@ -80,6 +82,7 @@ let gameOver = false;
 let dropTimer = null;
 let autoMode = false;
 let autoPilotTimer = null;
+let speedSetting = 5;
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => Array(COLS).fill(null));
@@ -161,7 +164,7 @@ function mergePiece() {
   });
 }
 
-function clearLines(targetBoard = board) {
+function clearLinesInBoard(targetBoard) {
   let cleared = 0;
   const nextBoard = targetBoard.map((row) => [...row]);
 
@@ -175,11 +178,6 @@ function clearLines(targetBoard = board) {
   }
 
   return { board: nextBoard, cleared };
-}
-
-function applyLines(targetBoard) {
-  const result = clearLines(targetBoard);
-  return result;
 }
 
 function evaluateBoard(nextBoard, cleared, landingHeight) {
@@ -255,7 +253,7 @@ function findBestMove(piece = currentPiece) {
         }
       }
 
-      const clearedResult = clearLines(nextBoard);
+      const clearedResult = clearLinesInBoard(nextBoard);
       const score = evaluateBoard(clearedResult.board, clearedResult.cleared, y);
 
       if (!best || score > best.score) {
@@ -267,12 +265,8 @@ function findBestMove(piece = currentPiece) {
   return best;
 }
 
-function clearLinesFromBoard(targetBoard) {
-  return clearLines(targetBoard);
-}
-
 function clearLines() {
-  const result = clearLinesFromBoard(board);
+  const result = clearLinesInBoard(board);
   board = result.board;
 
   if (result.cleared > 0) {
@@ -282,7 +276,9 @@ function clearLines() {
     level = Math.floor(lines / 10) + 1;
     updateHud();
     updateStatus(`Cleared ${result.cleared} line${result.cleared > 1 ? 's' : ''}!`);
-    startTimer();
+    if (!autoMode && !gameOver) {
+      startTimer();
+    }
   }
 }
 
@@ -295,6 +291,8 @@ function dropPiece() {
     mergePiece();
     clearLines();
     spawnPiece();
+    render();
+    return;
   }
   render();
 }
@@ -463,12 +461,26 @@ function render() {
   drawNextPiece();
 }
 
+function updateSpeedLabel() {
+  const labels = ['とてもゆっくり', 'ゆっくり', 'ややゆっくり', '標準', '少し速い', '速い', 'かなり速い', '高速', '超高速', '最速'];
+  const index = Math.min(Math.max(speedSetting - 1, 0), labels.length - 1);
+  speedValue.textContent = `${labels[index]} (${speedSetting}/10)`;
+}
+
+function getDropDelay() {
+  return Math.max(100, 900 - (speedSetting - 1) * 80 - (level - 1) * 50);
+}
+
+function getAutoDelay() {
+  return Math.max(350, 800 - (speedSetting - 1) * 45);
+}
+
 function startTimer() {
+  if (autoMode) return;
   clearInterval(dropTimer);
-  const speed = Math.max(120, 700 - (level - 1) * 60);
   dropTimer = setInterval(() => {
     dropPiece();
-  }, speed);
+  }, getDropDelay());
 }
 
 function stopTimer() {
@@ -476,6 +488,7 @@ function stopTimer() {
 }
 
 function startAutoPilot() {
+  stopTimer();
   stopAutoPilot();
   autoPilotTimer = setInterval(() => {
     if (!autoMode || gameOver || isPaused || !currentPiece) return;
@@ -500,15 +513,20 @@ function startAutoPilot() {
       return;
     }
 
-    if (!canMove(currentPiece, 0, 1)) return;
-
-    if (currentPiece.x === best.x && currentRotation === best.rotation) {
-      hardDrop();
+    if (currentRotation !== best.rotation) {
+      rotatePiece();
       return;
     }
 
-    dropPiece();
-  }, 70);
+    if (canMove(currentPiece, 0, 1)) {
+      dropPiece();
+    } else {
+      mergePiece();
+      clearLines();
+      spawnPiece();
+      render();
+    }
+  }, getAutoDelay());
 }
 
 function stopAutoPilot() {
@@ -522,9 +540,13 @@ function setAutoMode(enabled) {
   updateStatus(enabled ? '自動運転モード' : (gameOver ? 'Game Over' : 'Ready'));
 
   if (enabled) {
+    stopTimer();
     startAutoPilot();
   } else {
     stopAutoPilot();
+    if (!gameOver && !isPaused) {
+      startTimer();
+    }
   }
 }
 
@@ -602,9 +624,17 @@ autoPlayBtn.addEventListener('click', () => {
   setAutoMode(!autoMode);
 });
 
+speedRange.addEventListener('input', (event) => {
+  speedSetting = Number(event.target.value);
+  updateSpeedLabel();
+  if (!gameOver && !isPaused) {
+    startTimer();
+  }
+});
+
+updateSpeedLabel();
 updateHud();
-updateStatus('Ready');
-setAutoMode(false);
+updateStatus('自動運転モード');
 spawnPiece();
-startTimer();
+setAutoMode(true);
 render();
