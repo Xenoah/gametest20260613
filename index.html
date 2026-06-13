@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tetris-Style Browser Game</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="panel hero-panel">
+        <p class="eyebrow">ブラウザゲーム</p>
+        <h1>Tetris-Style</h1>
+        <p class="lede">
+          HTML・CSS・JavaScriptだけで動く、シンプルなテトリス風ゲームです。
+          矢印キーで移動、上キーで回転、下キーで加速、スペースで即落下します。
+        </p>
+        <ul class="rule-list">
+          <li>1行消去ごとにスコアが加算されます</li>
+          <li>レベルが上がると落下速度が早くなります</li>
+          <li>Pで一時停止、Nで新規ゲーム開始</li>
+        </ul>
+      </section>
+
+      <section class="panel game-panel">
+        <div class="game-header">
+          <div>
+            <h2>ゲーム画面</h2>
+            <p class="subtitle">同じルールの落下・回転・ライン消去</p>
+          </div>
+          <button id="restartBtn" type="button">New Game</button>
+        </div>
+
+        <div class="board-wrapper">
+          <canvas id="board" width="300" height="600" aria-label="Tetris board"></canvas>
+          <aside class="side-panel">
+            <article class="stats-card">
+              <h3>Score</h3>
+              <p id="score">0</p>
+            </article>
+            <article class="stats-card">
+              <h3>Lines</h3>
+              <p id="lines">0</p>
+            </article>
+            <article class="stats-card">
+              <h3>Level</h3>
+              <p id="level">1</p>
+            </article>
+            <article class="stats-card">
+              <h3>Next</h3>
+              <canvas id="next" width="160" height="160" aria-label="Next piece preview"></canvas>
+            </article>
+            <article class="stats-card status-card">
+              <h3>Status</h3>
+              <p id="status">Ready</p>
+            </article>
+          </aside>
+        </div>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
