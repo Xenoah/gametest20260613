@@ -67,6 +67,7 @@ const linesEl = document.getElementById('lines');
 const levelEl = document.getElementById('level');
 const statusEl = document.getElementById('status');
 const restartBtn = document.getElementById('restartBtn');
+const autoPlayBtn = document.getElementById('autoPlayBtn');
 
 let board = createBoard();
 let currentPiece = null;
@@ -77,6 +78,8 @@ let level = 1;
 let isPaused = false;
 let gameOver = false;
 let dropTimer = null;
+let autoMode = false;
+let autoPilotTimer = null;
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => Array(COLS).fill(null));
@@ -298,6 +301,39 @@ function stopTimer() {
   clearInterval(dropTimer);
 }
 
+function startAutoPilot() {
+  stopAutoPilot();
+  autoPilotTimer = setInterval(() => {
+    if (!autoMode || gameOver || isPaused || !currentPiece) return;
+
+    const action = Math.random();
+    if (action < 0.35) {
+      rotatePiece();
+    } else if (action < 0.65) {
+      movePiece(Math.random() < 0.5 ? -1 : 1);
+    } else {
+      dropPiece();
+    }
+  }, 140);
+}
+
+function stopAutoPilot() {
+  clearInterval(autoPilotTimer);
+}
+
+function setAutoMode(enabled) {
+  autoMode = enabled;
+  autoPlayBtn.classList.toggle('active', enabled);
+  autoPlayBtn.textContent = enabled ? 'Auto Play: ON' : 'Auto Play';
+  updateStatus(enabled ? '自動運転モード' : (gameOver ? 'Game Over' : 'Ready'));
+
+  if (enabled) {
+    startAutoPilot();
+  } else {
+    stopAutoPilot();
+  }
+}
+
 function resetGame() {
   board = createBoard();
   score = 0;
@@ -368,8 +404,13 @@ restartBtn.addEventListener('click', () => {
   resetGame();
 });
 
+autoPlayBtn.addEventListener('click', () => {
+  setAutoMode(!autoMode);
+});
+
 updateHud();
 updateStatus('Ready');
+setAutoMode(false);
 spawnPiece();
 startTimer();
 render();
