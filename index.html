@@ -60,6 +60,14 @@
               <p id="level">1</p>
             </article>
             <article class="stats-card">
+              <h3>Best</h3>
+              <p id="bestScore">0</p>
+            </article>
+            <article class="stats-card">
+              <h3>Penalty</h3>
+              <p id="penalty">0 ✗</p>
+            </article>
+            <article class="stats-card">
               <h3>Next</h3>
               <canvas id="next" width="160" height="160" aria-label="Next piece preview"></canvas>
             </article>
@@ -72,6 +80,14 @@
               <label for="speedRange" class="speed-label">落下速度</label>
               <input id="speedRange" type="range" min="1" max="10" value="5" />
               <p id="speedValue" class="speed-value">標準</p>
+            </article>
+            <article class="stats-card log-card">
+              <h3>Logs</h3>
+              <div class="log-actions">
+                <button id="downloadLogBtn" type="button" class="ghost-btn small-btn">Log DL</button>
+                <button id="clearLogBtn" type="button" class="ghost-btn small-btn">Log Clear</button>
+              </div>
+              <ul id="logList" class="log-list"></ul>
             </article>
           </aside>
         </div>

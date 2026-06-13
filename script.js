@@ -70,6 +70,11 @@ const restartBtn = document.getElementById('restartBtn');
 const autoPlayBtn = document.getElementById('autoPlayBtn');
 const speedRange = document.getElementById('speedRange');
 const speedValue = document.getElementById('speedValue');
+const bestScoreEl = document.getElementById('bestScore');
+const penaltyEl = document.getElementById('penalty');
+const logList = document.getElementById('logList');
+const downloadLogBtn = document.getElementById('downloadLogBtn');
+const clearLogBtn = document.getElementById('clearLogBtn');
 
 let board = createBoard();
 let currentPiece = null;
@@ -83,6 +88,12 @@ let dropTimer = null;
 let autoMode = false;
 let autoPilotTimer = null;
 let speedSetting = 5;
+let penalty = 0;
+let bestScore = 0;
+const gameLog = [];
+let lastAction = 'start';
+let lastReward = 0;
+const LOG_KEY = 'tetris-log-v1';
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => Array(COLS).fill(null));
@@ -153,6 +164,7 @@ function canMove(piece, offsetX, offsetY, matrix = piece.matrix) {
 }
 
 function mergePiece() {
+  const beforeCells = countOccupiedCells(board);
   currentPiece.matrix.forEach((row, y) => {
     row.forEach((cell, x) => {
       if (cell) {
@@ -229,6 +241,21 @@ function getRotatedMatrix(matrix, rotations) {
   return result;
 }
 
+function getPatternScore(boardState) {
+  const heights = Array(COLS).fill(0);
+  for (let col = 0; col < COLS; col += 1) {
+    for (let row = ROWS - 1; row >= 0; row -= 1) {
+      if (boardState[row][col]) {
+        heights[col] = ROWS - row;
+        break;
+      }
+    }
+  }
+  const ridge = heights.slice(1).reduce((sum, h, idx) => sum + Math.abs(h - heights[idx]), 0);
+  const holes = heights.reduce((sum, h) => sum + Math.max(0, h - 1), 0);
+  return -ridge * 4 - holes * 6;
+}
+
 function findBestMove(piece = currentPiece) {
   if (!piece) return null;
 
@@ -254,7 +281,7 @@ function findBestMove(piece = currentPiece) {
       }
 
       const clearedResult = clearLinesInBoard(nextBoard);
-      const score = evaluateBoard(clearedResult.board, clearedResult.cleared, y);
+      const score = evaluateBoard(clearedResult.board, clearedResult.cleared, y) + getPatternScore(nextBoard);
 
       if (!best || score > best.score) {
         best = { score, x, y, rotation, matrix, cleared: clearedResult.cleared };
@@ -265,17 +292,37 @@ function findBestMove(piece = currentPiece) {
   return best;
 }
 
+function countOccupiedCells(boardState) {
+  return boardState.flat().filter(Boolean).length;
+}
+
+function getStackHeight(boardState) {
+  return boardState.reduce((max, row) => Math.max(max, row.filter(Boolean).length), 0);
+}
+
 function clearLines() {
+  const beforeCells = countOccupiedCells(board);
   const result = clearLinesInBoard(board);
   board = result.board;
 
   if (result.cleared > 0) {
     const points = [0, 100, 300, 500, 800];
-    score += points[result.cleared] * level;
+    const rewardGain = points[result.cleared] * level + 50 * result.cleared;
+    score += rewardGain;
     lines += result.cleared;
     level = Math.floor(lines / 10) + 1;
+    bestScore = Math.max(bestScore, score);
+    lastReward += rewardGain;
     updateHud();
-    updateStatus(`Cleared ${result.cleared} line${result.cleared > 1 ? 's' : ''}!`);
+    updateStatus(`Great! ${result.cleared} line${result.cleared > 1 ? 's' : ''} cleared!`);
+    logEvent(`ライン消去 ${result.cleared} 行 / score ${score} / reward +${rewardGain}`);
+
+    if (beforeCells > 80) {
+      penalty += 1;
+      lastReward -= 30;
+      updateHud();
+      logEvent('✗ ブロックを重ねすぎです');
+    }
     if (!autoMode && !gameOver) {
       startTimer();
     }
@@ -337,10 +384,71 @@ function updateHud() {
   scoreEl.textContent = String(score);
   linesEl.textContent = String(lines);
   levelEl.textContent = String(level);
+  bestScoreEl.textContent = String(bestScore);
+  penaltyEl.textContent = `${penalty} ✗`;
 }
 
 function updateStatus(text) {
   statusEl.textContent = text;
+}
+
+function updateLearningState() {
+  if (typeof window !== 'undefined') {
+    window.__RL_ENV__ = {
+      board: board.map((row) => [...row]),
+      currentPiece: currentPiece ? { type: currentPiece.type, x: currentPiece.x, y: currentPiece.y, matrix: cloneMatrix(currentPiece.matrix), rotation: currentPiece.rotation || 0 } : null,
+      nextPiece: nextPiece ? { type: nextPiece.type, matrix: cloneMatrix(nextPiece.matrix) } : null,
+      score,
+      lines,
+      level,
+      penalty,
+      bestScore,
+      autoMode,
+      speedSetting,
+      gameOver,
+      isPaused,
+      reward: lastReward,
+      logCount: gameLog.length,
+    };
+  }
+}
+
+function loadLogs() {
+  try {
+    const saved = localStorage.getItem(LOG_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        gameLog.push(...parsed);
+      }
+    }
+  } catch (error) {
+    console.warn('Log load failed', error);
+  }
+}
+
+function persistLogs() {
+  localStorage.setItem(LOG_KEY, JSON.stringify(gameLog));
+}
+
+function logEvent(message) {
+  const entry = `${new Date().toLocaleTimeString('ja-JP')} - ${message}`;
+  gameLog.unshift(entry);
+  if (gameLog.length > 100) gameLog.length = 100;
+  persistLogs();
+  if (logList) {
+    logList.innerHTML = gameLog.map((item) => `<li>${item}</li>`).join('');
+  }
+}
+
+function saveLog() {
+  const blob = new Blob([gameLog.join('\n')], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'tetris-log.txt';
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function roundedRectPath(context, x, y, w, h, r) {
@@ -459,6 +567,7 @@ function drawNextPiece() {
 function render() {
   drawBoard();
   drawNextPiece();
+  updateLearningState();
 }
 
 function updateSpeedLabel() {
@@ -555,10 +664,12 @@ function resetGame() {
   score = 0;
   lines = 0;
   level = 1;
+  penalty = 0;
   isPaused = false;
   gameOver = false;
   updateHud();
   updateStatus('Game started. Use arrows and space.');
+  logEvent('新規ゲーム開始');
   stopTimer();
   nextPiece = null;
   spawnPiece();
@@ -627,14 +738,22 @@ autoPlayBtn.addEventListener('click', () => {
 speedRange.addEventListener('input', (event) => {
   speedSetting = Number(event.target.value);
   updateSpeedLabel();
-  if (!gameOver && !isPaused) {
+  if (autoMode) {
+    setAutoMode(true);
+  } else if (!gameOver && !isPaused) {
     startTimer();
   }
 });
 
+loadLogs();
+if (logList) {
+  logList.innerHTML = gameLog.map((item) => `<li>${item}</li>`).join('');
+}
+
 updateSpeedLabel();
 updateHud();
 updateStatus('自動運転モード');
+logEvent('ゲーム開始');
 spawnPiece();
 setAutoMode(true);
 render();

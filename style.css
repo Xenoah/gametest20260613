@@ -167,6 +167,36 @@ button:hover {
   color: #bfdbfe;
 }
 
+.small-btn {
+  padding: 6px 10px;
+  font-size: 0.85rem;
+}
+
+.log-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.log-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 120px;
+  overflow: auto;
+}
+
+.log-list li {
+  font-size: 0.78rem;
+  color: #dbeafe;
+  background: rgba(30, 41, 59, 0.9);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
 .speed-card {
   display: flex;
   flex-direction: column;
