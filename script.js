@@ -164,17 +164,17 @@ function mergePiece() {
   });
 }
 
-function clearLinesInBoard(targetBoard) {
-  let cleared = 0;
-  const nextBoard = targetBoard.map((row) => [...row]);
+function isFullRow(row) {
+  return row.every((cell) => cell !== null && cell !== undefined && cell !== false);
+}
 
-  for (let y = ROWS - 1; y >= 0; y -= 1) {
-    if (nextBoard[y].every(Boolean)) {
-      nextBoard.splice(y, 1);
-      nextBoard.unshift(Array(COLS).fill(null));
-      cleared += 1;
-      y += 1;
-    }
+function clearLinesInBoard(targetBoard = board) {
+  const rowsToKeep = targetBoard.filter((row) => !isFullRow(row));
+  const cleared = ROWS - rowsToKeep.length;
+
+  const nextBoard = [...rowsToKeep];
+  while (nextBoard.length < ROWS) {
+    nextBoard.unshift(Array(COLS).fill(null));
   }
 
   return { board: nextBoard, cleared };
